@@ -6,7 +6,7 @@ const bookSchema = new mongoose.Schema({
   description: { type: String, required: true },
   category: {
     type: String,
-    enum: ['Fiction', 'Sci-Fi', 'Academic', 'History', 'Biography', 'Technology', 'Children', 'Other'],
+    enum: ['Fiction', 'Sci-Fi', 'Academic', 'History', 'Biography', 'Technology', 'Children', 'Self-Help', 'Fantasy', 'Business', 'Science', 'Other'],
     required: true
   },
   deliveryFee: { type: Number, required: true, min: 1 },
