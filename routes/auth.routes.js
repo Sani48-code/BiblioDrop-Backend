@@ -31,9 +31,42 @@ function userPayload(user) {
   };
 }
 
-router.post('/register', async (req, res) => {
+// ─── Core handlers (reused by both path styles) ──────────────────────────────
+
+async function handleLogin(req, res) {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Email and password are required.' });
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user) {
+      return res.status(404).json({ message: 'No account found with this email.' });
+    }
+    if (!user.password) {
+      return res.status(401).json({ message: 'This account uses Google sign-in. No password set.' });
+    }
+
+    const match = await bcrypt.compare(password, user.password);
+    if (!match) {
+      return res.status(401).json({ message: 'Incorrect password.' });
+    }
+
+    const token = signToken(user);
+    res.cookie('token', token, COOKIE_OPTIONS);
+    res.json({ token, user: userPayload(user) });
+  } catch (error) {
+    res.status(500).json({ message: 'Login failed.', error: error.message });
+  }
+}
+
+async function handleRegister(req, res) {
   try {
     const { name, email, password, photoURL, role } = req.body;
+    if (!name || !email || !password) {
+      return res.status(400).json({ message: 'Name, email, and password are required.' });
+    }
 
     const existing = await User.findOne({ email: email.toLowerCase() });
     if (existing) {
@@ -52,40 +85,18 @@ router.post('/register', async (req, res) => {
 
     const token = signToken(user);
     res.cookie('token', token, COOKIE_OPTIONS);
-    res.status(201).json({ user: userPayload(user) });
+    res.status(201).json({ token, user: userPayload(user) });
   } catch (error) {
     res.status(500).json({ message: 'Registration failed.', error: error.message });
   }
-});
+}
 
-router.post('/login', async (req, res) => {
-  try {
-    const { email, password } = req.body;
-
-    const user = await User.findOne({ email: email.toLowerCase() });
-    if (!user) {
-      return res.status(404).json({ message: 'No account found with this email.' });
-    }
-
-    const match = await bcrypt.compare(password, user.password);
-    if (!match) {
-      return res.status(401).json({ message: 'Incorrect password.' });
-    }
-
-    const token = signToken(user);
-    res.cookie('token', token, COOKIE_OPTIONS);
-    res.json({ user: userPayload(user) });
-  } catch (error) {
-    res.status(500).json({ message: 'Login failed.', error: error.message });
-  }
-});
-
-router.post('/logout', (req, res) => {
+function handleLogout(req, res) {
   res.clearCookie('token', { httpOnly: true, secure: true, sameSite: 'none' });
   res.json({ message: 'Logged out successfully' });
-});
+}
 
-router.get('/me', verifyToken, async (req, res) => {
+async function handleMe(req, res) {
   try {
     const user = await User.findById(req.user.id).select('-password');
     if (!user) {
@@ -95,11 +106,31 @@ router.get('/me', verifyToken, async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: 'Failed to fetch user.', error: error.message });
   }
-});
+}
+
+// ─── Standard JWT routes ──────────────────────────────────────────────────────
+
+router.post('/register', handleRegister);
+router.post('/login', handleLogin);
+router.post('/logout', handleLogout);
+router.get('/me', verifyToken, handleMe);
+
+// ─── Better Auth–compatible route aliases ────────────────────────────────────
+// Frontend Better Auth clients call these paths by default.
+
+router.post('/sign-up/email', handleRegister);
+router.post('/sign-in/email', handleLogin);
+router.post('/sign-out', handleLogout);
+router.get('/get-session', verifyToken, handleMe);
+
+// ─── Google / OAuth ───────────────────────────────────────────────────────────
 
 router.post('/google', async (req, res) => {
   try {
     const { name, email, photoURL, provider, role } = req.body;
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required.' });
+    }
 
     let user = await User.findOne({ email: email.toLowerCase() });
     if (!user) {
@@ -114,7 +145,7 @@ router.post('/google', async (req, res) => {
 
     const token = signToken(user);
     res.cookie('token', token, COOKIE_OPTIONS);
-    res.json({ user: userPayload(user) });
+    res.json({ token, user: userPayload(user) });
   } catch (error) {
     res.status(500).json({ message: 'Google auth failed.', error: error.message });
   }
