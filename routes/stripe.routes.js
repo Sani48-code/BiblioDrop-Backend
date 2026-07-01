@@ -50,7 +50,7 @@ router.post('/create-checkout-session', verifyToken, async (req, res) => {
       line_items: [
         {
           price_data: {
-            currency: 'bdt',
+            currency: 'usd',
             product_data: {
               name: book.title,
               description: `Delivery fee for "${book.title}" by ${book.author}`,
@@ -78,7 +78,11 @@ router.post('/create-checkout-session', verifyToken, async (req, res) => {
 
     res.json({ url: session.url });
   } catch (error) {
-    console.error('[Stripe] create-checkout-session error:', error.message);
+    console.error('[Stripe] FULL ERROR:', JSON.stringify(error, null, 2));
+    console.error('[Stripe] error.message:', error.message);
+    console.error('[Stripe] error.type:', error.type);
+    console.error('[Stripe] STRIPE_SECRET_KEY exists:', !!process.env.STRIPE_SECRET_KEY);
+    console.error('[Stripe] CLIENT_URL:', process.env.CLIENT_URL);
     res.status(500).json({ message: 'Failed to create checkout session.', error: error.message });
   }
 });
