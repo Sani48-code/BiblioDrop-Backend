@@ -16,6 +16,11 @@ function getStripe() {
 
 // POST /api/stripe/create-checkout-session
 router.post('/create-checkout-session', verifyToken, async (req, res) => {
+  console.log('[Stripe] Request received, body:', JSON.stringify(req.body));
+  console.log('[Stripe] User:', req.user);
+  console.log('[Stripe] STRIPE_SECRET_KEY exists:', !!process.env.STRIPE_SECRET_KEY);
+  console.log('[Stripe] CLIENT_URL:', process.env.CLIENT_URL);
+
   try {
     // Guard: these env vars must be set in Railway (or .env locally)
     if (!process.env.STRIPE_SECRET_KEY) {
