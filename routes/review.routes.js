@@ -5,7 +5,31 @@ const verifyToken = require('../middleware/verifyToken');
 
 const router = express.Router();
 
-// GET /api/reviews/book/:bookId (PUBLIC)
+// GET /api/reviews?bookId=xxx  (query-param style — frontend compatibility)
+router.get('/', async (req, res) => {
+  try {
+    const { bookId } = req.query;
+    if (!bookId) {
+      return res.status(400).json({ message: 'bookId query parameter is required.' });
+    }
+
+    const reviews = await Review.find({ bookId })
+      .populate('userId', 'name photoURL')
+      .sort({ createdAt: -1 });
+
+    const totalReviews = reviews.length;
+    const averageRating =
+      totalReviews > 0
+        ? reviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews
+        : 0;
+
+    res.json({ reviews, averageRating: Math.round(averageRating * 10) / 10, totalReviews });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to fetch reviews.', error: error.message });
+  }
+});
+
+// GET /api/reviews/book/:bookId  (path-param style — kept for backwards compat)
 router.get('/book/:bookId', async (req, res) => {
   try {
     const reviews = await Review.find({ bookId: req.params.bookId })
